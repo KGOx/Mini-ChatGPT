@@ -29,6 +29,7 @@ const props = defineProps({
     flash: Object
 })
 
+const showSidebar = ref(false)
 const selectedConversation = ref(props.selectedConversation)
 const messages = ref(props.messages)
 const localSelectedModel = ref(props.selectedModel)
@@ -145,73 +146,95 @@ const renderedMarkdown = computed(() =>
     <AppLayout title="Chat">
       <div class="flex h-screen">
         <!-- Liste des conversations -->
-        <aside class="w-1/4 bg-gray-100 border-r overflow-y-auto">
-          <div class="p-4 font-bold">Conversations
-            <button class="m-4 bg-blue-500 text-white px-4 py-2 rounded" @click="newConversation">
-                    + Nouvelle conversation
+        <aside :class="[
+        'fixed inset-y-0 left-0 z-40 bg-gray-100 border-r w-64 transform transition-transform duration-200 ease-in-out',
+        showSidebar ? 'translate-x-0' : '-translate-x-full',
+        'md:static md:translate-x-0 md:w-1/3 lg:w-1/4 md:block',
+    ]"
+    style="max-width: 100vw;">
+    <div class="p-2 md:p-4 font-bold flex justify-between items-center">
+      Conversations
+        <button class="bg-blue-500 text-white px-1 py-1 md:px-2 md:py-1 rounded text-xs md:text-base" @click="newConversation">
+                + Nouvelle conversation
+        </button>
+            <!-- Bouton de fermeture sur mobile -->
+        <button class="md:hidden text-2xl ml-2" @click="showSidebar = false">×</button>
+    </div>
+        <ul>
+        <li
+            v-for="conv in conversations"
+            :key="conv.id"
+            :class="['p-2 md:p-4 cursor-pointer flex justify-between items-center', selectedConversation && selectedConversation.id === conv.id ? 'bg-blue-200' : '']">
+            <div @click="selectConversation(conv); showSidebar = false" class="flex-1">
+            {{ conv.title || 'Nouvelle conversation' }}
+            <div class="text-xs text-gray-500">{{ conv.updated_at }}</div>
+            </div>
+            <button
+            @click.stop="deleteConversation(conv)"
+            class="text-red-500 hover:text-red-700 ml-2"
+            title="Supprimer">
+            ✕
             </button>
-          </div>
-          <ul>
-            <li
-                v-for="conv in conversations"
-                :key="conv.id"
-                :class="['p-4 cursor-pointer flex justify-between items-center', selectedConversation && selectedConversation.id === conv.id ? 'bg-blue-200' : '']">
-                <div @click="selectConversation(conv)" class="flex-1">
-                    {{ conv.title || 'Nouvelle conversation' }}
-                    <div class="text-xs text-gray-500">{{ conv.updated_at }}</div>
-                </div>
-                <button
-                    @click.stop="deleteConversation(conv)"
-                    class="text-red-500 hover:text-red-700 ml-2"
-                    title="Supprimer">
-                    ✕
-                </button>
-            </li>
+        </li>
+        </ul>
+    </aside>
 
-          </ul>
-        </aside>
+    <!-- Overlay noir pour fermer la sidebar sur mobile -->
+    <div
+        v-if="showSidebar"
+        class="fixed inset-0 z-30 bg-black bg-opacity-40 md:hidden"
+        @click="showSidebar = false"
+    ></div>
 
-        <!-- Affichage de la conversation sélectionnée -->
-        <main class="flex-1 flex flex-col">
-          <div class="p-4 border-b flex items-center justify-between">
-            <div>
-              <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
-            </div>
-            <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded">
-              <option v-for="model in models" :key="model.id" :value="model.id">
-                {{ model.name }}
-              </option>
-            </select>
-          </div>
+    <!-- Main chat -->
+    <main class="flex-1 flex flex-col h-full ml-0 md:ml-0">
+        <!-- Bouton hamburger sur mobile -->
+        <div class="md:hidden flex items-center justify-between p-2 border-b bg-gray-50">
+        <button @click="showSidebar = true" class="text-2xl">☰</button>
+        <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
+        <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded text-xs">
+            <option v-for="model in models" :key="model.id" :value="model.id">
+            {{ model.name }}
+            </option>
+        </select>
+        </div>
+        <!-- Barre du haut sur desktop -->
+        <div class="hidden md:flex p-4 border-b items-center justify-between">
+        <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
+        <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded">
+            <option v-for="model in models" :key="model.id" :value="model.id">
+            {{ model.name }}
+            </option>
+        </select>
+        </div>
 
-          <!-- Liste des messages -->
-          <div class="flex-1 overflow-y-auto p-4 bg-white">
+        <!-- Liste des messages -->
+        <div class="flex-1 overflow-y-auto p-2 md:p-4 bg-white">
+        <div
+            v-for="msg in messages"
+            :key="msg.id"
+            :class="msg.role === 'user' ? 'text-right' : 'text-left'"
+            class="mb-2">
             <div
-              v-for="msg in messages"
-              :key="msg.id"
-              :class="msg.role === 'user' ? 'text-right' : 'text-left'"
-              class="mb-2"
-            >
-              <div
-                class="inline-block px-4 py-2 rounded-lg"
+                class="inline-block px-2 py-1 md:px-4 md:py-2 rounded-lg"
                 :class="msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-200'"
-                v-html="renderMarkdown(msg.content)"
-              ></div>
+                v-html="renderMarkdown(msg.content)">
             </div>
-            <div v-if="loading" class="text-center text-gray-500 mt-4">Chargement...</div>
-          </div>
+        </div>
+        <div v-if="loading" class="text-center text-gray-500 mt-4">Chargement...</div>
+        </div>
 
-          <!-- Saisie du message -->
-          <div class="p-4 border-t bg-gray-50">
-            <form @submit.prevent="sendMessage" class="flex gap-2">
-              <textarea v-model="newMessage" rows="2" class="flex-1 p-2 border rounded" placeholder="Écris un message..." :disabled="loading"></textarea>
-              <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded" :disabled="loading || !newMessage">
-                Envoyer
-              </button>
-            </form>
-          </div>
-        </main>
-      </div>
+        <!-- Saisie du message -->
+        <div class="p-2 md:p-4 border-t bg-gray-50">
+        <form @submit.prevent="sendMessage" class="flex flex-col md:flex-row gap-2">
+            <textarea v-model="newMessage" rows="2" class="flex-1 p-2 border rounded" placeholder="Écris un message..." :disabled="loading"></textarea>
+            <button type="submit" class="bg-blue-600 text-white px-2 py-1 md:px-4 md:py-2 rounded" :disabled="loading || !newMessage">
+            Envoyer
+            </button>
+        </form>
+        </div>
+    </main>
+    </div>
     </AppLayout>
   </template>
 

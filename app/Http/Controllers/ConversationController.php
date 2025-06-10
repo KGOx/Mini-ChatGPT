@@ -3,11 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Conversation;
+use App\Services\ChatService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class ConversationController extends Controller
 {
+    public function index()
+    {
+        // Redirige vers la page principale du chat
+        return redirect()->route('ask.index');
+    }
     public function ask()
     {
         $user = auth()->user();
@@ -48,7 +54,7 @@ class ConversationController extends Controller
     {
         $conversation = Conversation::create([
             'user_id' => auth()->id(),
-            'model' => auth()->user()->model ?? 'meta-llama/llama-3.2-11b-vision-instruct:free'
+            'model' => auth()->user()->model ?? ChatService::DEFAULT_MODEL
         ]);
 
         $conversations = Conversation::where('user_id', auth()->id())
