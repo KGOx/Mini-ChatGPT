@@ -9,7 +9,7 @@ class ChatService
     private $baseUrl;
     private $apiKey;
     private $client;
-    public const DEFAULT_MODEL = 'meta-llama/llama-3.2-11b-vision-instruct:free';
+    public const DEFAULT_MODEL = 'openai/gpt-4.1-mini';
 
     public function __construct()
     {
