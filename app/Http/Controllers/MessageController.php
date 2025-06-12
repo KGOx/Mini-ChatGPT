@@ -15,7 +15,7 @@ class MessageController extends Controller
         ]);
 
         // Ajouter le message de l'utilisateur
-        $message = $conversation->messages()->create([
+        $conversation->messages()->create([
             'user_id' => auth()->id(),
             'role' => 'user',
             'content' => $request->content,

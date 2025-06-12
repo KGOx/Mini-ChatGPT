@@ -191,7 +191,6 @@ const renderedMarkdown = computed(() =>
         <!-- Bouton hamburger sur mobile -->
         <div class="md:hidden flex items-center justify-between p-2 border-b bg-gray-50">
         <button @click="showSidebar = true" class="text-2xl">☰</button>
-        <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
         <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded text-xs">
             <option v-for="model in models" :key="model.id" :value="model.id">
             {{ model.name }}
@@ -200,7 +199,6 @@ const renderedMarkdown = computed(() =>
         </div>
         <!-- Barre du haut sur desktop -->
         <div class="hidden md:flex p-4 border-b items-center justify-between">
-        <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
         <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded">
             <option v-for="model in models" :key="model.id" :value="model.id">
             {{ model.name }}
@@ -225,12 +223,22 @@ const renderedMarkdown = computed(() =>
         </div>
 
         <!-- Saisie du message -->
-        <div class="p-2 md:p-4 border-t bg-gray-50">
-        <form @submit.prevent="sendMessage" class="flex flex-col md:flex-row gap-2">
-            <textarea v-model="newMessage" rows="2" class="flex-1 p-2 border rounded" placeholder="Écris un message..." :disabled="loading"></textarea>
-            <button type="submit" class="bg-blue-600 text-white px-2 py-1 md:px-4 md:py-2 rounded" :disabled="loading || !newMessage">
+        <<div class="fixed bottom-0 left-0 right-0 md:left-64 lg:left-1/4 bg-gray-50 border-t p-2 md:p-4 z-30">
+        <form @submit.prevent="sendMessage" class="flex flex-col md:flex-row gap-2 max-w-4xl mx-auto">
+          <textarea
+            v-model="newMessage"
+            rows="2"
+            class="flex-1 p-2 border rounded resize-none"
+            placeholder="Écris un message..."
+            :disabled="loading"
+            @keydown.enter.prevent="sendMessage">
+          </textarea>
+          <button
+            type="submit"
+            class="bg-blue-600 text-white px-2 py-1 md:px-4 md:py-2 rounded"
+            :disabled="loading || !newMessage">
             Envoyer
-            </button>
+          </button>
         </form>
         </div>
     </main>
