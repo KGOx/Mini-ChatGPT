@@ -88,9 +88,27 @@ class ConversationController extends Controller
 
     public function messages(Conversation $conversation)
     {
-        return response()->json([
-            'messages' => $conversation->messages()->orderBy('created_at')->get(),
-            'selectedConversation' => $conversation
+        // On vérifie que l'utilisateur peut voir la conversation
+        if ($conversation->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $user = auth()->user();
+        $conversations = Conversation::where('user_id', $user->id)
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        $messages = $conversation->messages()->orderBy('created_at')->get();
+
+        $chatService = new \App\Services\ChatService();
+        $models = $chatService->getModels();
+
+        return Inertia::render('Ask/Index', [
+            'conversations' => $conversations,
+            'selectedConversation' => $conversation,
+            'messages' => $messages,
+            'models' => $models,
+            'selectedModel' => $conversation->model,
         ]);
     }
 

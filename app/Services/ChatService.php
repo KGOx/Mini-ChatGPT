@@ -119,4 +119,54 @@ class ChatService
                 EOT,
         ];
     }
+
+    /**
+     * Génère un titre pour une conversation basé sur le premier message
+     */
+    public function generateTitle(string $firstMessage, string $model = null): string
+    {
+        try {
+            $model = $model ?? self::DEFAULT_MODEL;
+
+            $messages = [
+                [
+                    'role' => 'system',
+                    'content' => 'Tu es un assistant qui génère des titres courts et pertinents pour des conversations. Génère un titre de maximum 40 caractères basé sur la réponse d\'une IA. Le titre doit capturer le sujet principal ou l\'essence de la réponse. Réponds uniquement avec le titre, sans guillemets ni ponctuation finale.'
+                ],
+                [
+                    'role' => 'user',
+                    'content' => "Génère un titre court et accrocheur pour cette conversation basé sur cette réponse d'IA : \"" . substr($firstMessage, 0, 500) . "\""
+                ]
+            ];
+
+            $response = $this->client->chat()->create([
+                'model' => $model,
+                'messages' => $messages,
+                'temperature' => 0.5, // Un peu moins créatif pour des titres plus cohérents
+                'max_tokens' => 40
+            ]);
+
+            $title = trim($response->choices[0]->message->content);
+
+            // Nettoyer le titre
+            $title = str_replace(['"', "'", '«', '»', ':', '!', '?'], '', $title);
+
+            // Limiter à 40 caractères max
+            if (strlen($title) > 40) {
+                $title = substr($title, 0, 37) . '...';
+            }
+
+            return $title ?: 'Nouvelle conversation';
+        } catch (\Exception $e) {
+            logger()->error('Erreur génération titre:', ['error' => $e->getMessage()]);
+
+            // Titre de fallback basé sur les premiers mots de la réponse de l'ia
+            $words = explode(' ', $firstMessage);
+            $fallbackTitle = implode(' ', array_slice($words, 0, 5));
+
+            return strlen($fallbackTitle) > 40
+                ? substr($fallbackTitle, 0, 37) . '...'
+                : $fallbackTitle;
+        }
+    }
 }

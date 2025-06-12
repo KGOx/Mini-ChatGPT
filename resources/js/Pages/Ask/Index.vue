@@ -38,19 +38,18 @@ const newMessage = ref('')
 
 // Sélection d'une conversation avec Inertia
 function selectConversation(conv) {
-    // Ne pas changer d'URL, juste mettre à jour les données localement
-    selectedConversation.value = conv
-    messages.value = conv.messages || []
-    localSelectedModel.value = conv.model || props.selectedModel
-
-    // Si tu veux charger les messages depuis le serveur :
     loading.value = true
-    fetch(route('conversations.messages', conv.id))
-        .then(response => response.json())
-        .then(data => {
-            messages.value = data.messages
-        })
-        .finally(() => loading.value = false)
+
+    // Utiliser router.visit au lieu de fetch
+    router.visit(route('conversations.messages', conv.id), {
+        preserveState: false, // Important : recharger l'état
+        onSuccess: (page) => {
+            selectedConversation.value = page.props.selectedConversation
+            messages.value = page.props.messages
+            localSelectedModel.value = page.props.selectedModel
+        },
+        onFinish: () => loading.value = false
+    })
     }
 
 // Nouvelle conversation avec Inertia
@@ -82,9 +81,13 @@ function sendMessage() {
         content: newMessage.value,
         model: localSelectedModel.value
     }, {
-        only: ['messages'],
+        only: ['messages', 'selectedConversation'],
         onSuccess: (page) => {
             messages.value = page.props.messages
+            // On met a jour le titre s'il a changé
+            if (page.props.selectedConversation) {
+                selectedConversation.value = page.props.selectedConversation
+            }
             newMessage.value = ''
         },
         onFinish: () => loading.value = false
@@ -161,21 +164,25 @@ const renderedMarkdown = computed(() =>
         <button class="md:hidden text-2xl ml-2" @click="showSidebar = false">×</button>
     </div>
         <ul>
-        <li
-            v-for="conv in conversations"
-            :key="conv.id"
-            :class="['p-2 md:p-4 cursor-pointer flex justify-between items-center', selectedConversation && selectedConversation.id === conv.id ? 'bg-blue-200' : '']">
-            <div @click="selectConversation(conv); showSidebar = false" class="flex-1">
-            {{ conv.title || 'Nouvelle conversation' }}
-            <div class="text-xs text-gray-500">{{ conv.updated_at }}</div>
-            </div>
-            <button
-            @click.stop="deleteConversation(conv)"
-            class="text-red-500 hover:text-red-700 ml-2"
-            title="Supprimer">
-            ✕
-            </button>
-        </li>
+            <li
+                v-for="conv in conversations"
+                :key="conv.id"
+                :class="['p-2 md:p-4 cursor-pointer flex justify-between items-center relative group transition-all duration-200 rounded-lg border-2', selectedConversation && selectedConversation.id === conv.id ? 'bg-blue-200' : 'bg-transparent border-transparent hover:border-gray-300 hover:bg-gray-50']">
+
+                <div @click="selectConversation(conv); showSidebar = false" class="flex-1">
+                {{ conv.title || 'Nouvelle conversation' }}
+                <div class="text-xs text-gray-500">{{ conv.updated_at }}</div>
+                </div>
+
+                <button
+                    @click.stop="deleteConversation(conv)"
+                    class="absolute right-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all duration-200"
+                    title="Supprimer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </li>
         </ul>
     </aside>
 
@@ -207,18 +214,18 @@ const renderedMarkdown = computed(() =>
         </div>
 
         <!-- Liste des messages -->
-        <div class="flex-1 overflow-y-auto p-2 md:p-4 bg-white">
-        <div
-            v-for="msg in messages"
-            :key="msg.id"
-            :class="msg.role === 'user' ? 'text-right' : 'text-left'"
-            class="mb-2">
+        <div class="flex-1 overflow-y-auto p-2 md:p-4 bg-white pb-36 md:pb-32">
             <div
-                class="inline-block px-2 py-1 md:px-4 md:py-2 rounded-lg"
-                :class="msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-200'"
-                v-html="renderMarkdown(msg.content)">
+                v-for="msg in messages"
+                :key="msg.id"
+                :class="msg.role === 'user' ? 'text-right' : 'text-left'"
+                class="mb-2">
+                <div
+                    class="inline-block px-2 py-1 md:px-4 md:py-2 rounded-lg"
+                    :class="msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-200'"
+                    v-html="renderMarkdown(msg.content)">
+                </div>
             </div>
-        </div>
         <div v-if="loading" class="text-center text-gray-500 mt-4">Chargement...</div>
         </div>
 
