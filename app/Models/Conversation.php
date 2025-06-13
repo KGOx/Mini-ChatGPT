@@ -17,4 +17,17 @@ class Conversation extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function isEmpty(): bool
+    {
+        return $this->messages()->count() === 0;
+    }
+
+    public static function cleanupEmpty(int $userId): void
+    {
+        self::where('user_id', $userId)
+            ->whereDoesntHave('messages')
+            ->where('created_at', '<', now()->subSecond(30)) // On remove les conv vides de + de 30sec
+            ->delete();
+    }
 }

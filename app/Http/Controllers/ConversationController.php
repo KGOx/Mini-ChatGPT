@@ -17,28 +17,23 @@ class ConversationController extends Controller
     public function ask()
     {
         $user = auth()->user();
-        $chatService = new \App\Services\ChatService();
 
-        $defaultModel = \App\Services\ChatService::DEFAULT_MODEL;
+        // On nettoie les conversations vides de l'utilisateur avant la création d'une nouvelle
+        Conversation::cleanupEmpty($user->id);
+
+        $newConversation = Conversation::create([
+            'user_id' => $user->id,
+            'model' => $user->model ?? ChatService::DEFAULT_MODEL
+        ]);
 
         $conversations = Conversation::where('user_id', $user->id)
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        $selectedConversation = $conversations->first();
+        $selectedConversation = $newConversation;
+        $messages = collect();
 
-        // Si aucune conversation n'existe, en créer une automatiquement
-        if (!$selectedConversation) {
-            $selectedConversation = Conversation::create([
-                'user_id' => $user->id,
-                'model' => $user->model ?? $defaultModel
-            ]);
-            $conversations = $conversations->push($selectedConversation);
-        }
-
-        $messages = $selectedConversation->messages()->orderBy('created_at')->get();
-
-        $chatService = new \App\Services\ChatService();
+        $chatService = new ChatService();
         $models = $chatService->getModels();
 
         return Inertia::render('Ask/Index', [
@@ -46,12 +41,14 @@ class ConversationController extends Controller
             'selectedConversation' => $selectedConversation,
             'messages' => $messages,
             'models' => $models,
-            'selectedModel' => $user->model ?? $models[0]['id'],
+            'selectedModel' => $newConversation->model,
         ]);
     }
 
     public function store()
     {
+        Conversation::cleanupEmpty(auth()->id());
+
         $conversation = Conversation::create([
             'user_id' => auth()->id(),
             'model' => auth()->user()->model ?? ChatService::DEFAULT_MODEL
@@ -61,7 +58,7 @@ class ConversationController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        $chatService = new \App\Services\ChatService();
+        $chatService = new ChatService();
         $models = $chatService->getModels();
 
         return Inertia::render('Ask/Index', [
@@ -69,7 +66,7 @@ class ConversationController extends Controller
             'selectedConversation' => $conversation,
             'messages' => collect(),
             'models' => $models,
-            'selectedModel' => auth()->user()->model ?? $models[0]['id'],
+            'selectedModel' => $conversation->model,
         ]);
     }
 
@@ -100,7 +97,7 @@ class ConversationController extends Controller
 
         $messages = $conversation->messages()->orderBy('created_at')->get();
 
-        $chatService = new \App\Services\ChatService();
+        $chatService = new ChatService();
         $models = $chatService->getModels();
 
         return Inertia::render('Ask/Index', [

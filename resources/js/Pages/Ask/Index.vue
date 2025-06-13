@@ -32,6 +32,7 @@ const props = defineProps({
 const showSidebar = ref(false)
 const selectedConversation = ref(props.selectedConversation)
 const messages = ref(props.messages)
+const conversations = ref(props.conversations)
 const localSelectedModel = ref(props.selectedModel)
 const loading = ref(false)
 const newMessage = ref('')
@@ -56,10 +57,15 @@ function selectConversation(conv) {
 function newConversation() {
     loading.value = true
     router.post(route('conversations.store'), {}, {
+        only: ['conversations', 'selectedConversation', 'messages'],
         onSuccess: (page) => {
             selectedConversation.value = page.props.selectedConversation
             messages.value = page.props.messages || []
             // Supprime complètement la logique de rappel automatique
+
+            if (page.props.conversations) {
+                conversations.value = page.props.conversations
+            }
         },
         onFinish: () => loading.value = false
     })
@@ -81,12 +87,15 @@ function sendMessage() {
         content: newMessage.value,
         model: localSelectedModel.value
     }, {
-        only: ['messages', 'selectedConversation'],
+        only: ['messages', 'selectedConversation', 'conversations'],
         onSuccess: (page) => {
             messages.value = page.props.messages
             // On met a jour le titre s'il a changé
             if (page.props.selectedConversation) {
                 selectedConversation.value = page.props.selectedConversation
+                if (page.props.conversations) {
+                    conversations.value = page.props.conversations
+                }
             }
             newMessage.value = ''
         },

@@ -64,10 +64,17 @@ class MessageController extends Controller
         // on met à jour la date de la conversation
         $conversation->touch();
 
+        // Recharger TOUTES les conversations pour la sidebar
+        $conversations = Conversation::where('user_id', auth()->id())
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
         // Et on redirige ou on retourne la nouvelle liste de messages
         return Inertia::render('Ask/Index', [
             'messages' => $conversation->messages()->orderBy('created_at')->get(),
             'selectedConversation' => $conversation->fresh(), // Recharger pour avoir le nouveau titre
+            'conversations' => $conversations,
+            'generatedTitle' => $conversation->fresh()->title
         ]);
     }
 }
