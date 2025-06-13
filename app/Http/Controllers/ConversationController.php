@@ -69,6 +69,31 @@ class ConversationController extends Controller
             'selectedModel' => $conversation->model,
         ]);
     }
+    public function show(Conversation $conversation)
+    {
+        // Vérifier que l'utilisateur peut voir cette conversation
+        if ($conversation->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $user = auth()->user();
+        $conversations = Conversation::where('user_id', $user->id)
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        $messages = $conversation->messages()->orderBy('created_at')->get();
+
+        $chatService = new ChatService();
+        $models = $chatService->getModels();
+
+        return Inertia::render('Ask/Index', [
+            'conversations' => $conversations,
+            'selectedConversation' => $conversation,
+            'messages' => $messages,
+            'models' => $models,
+            'selectedModel' => $conversation->model,
+        ]);
+    }
 
     public function destroy(Conversation $conversation)
     {
@@ -77,10 +102,38 @@ class ConversationController extends Controller
             abort(403);
         }
 
+        $conversationId = $conversation->id;
         $conversation->delete();
 
-        // Rediriger vers /ask pour recharger la liste
-        return redirect()->route('ask.index');
+        // Retourner les données mises à jour au lieu d'une simple redirection
+        $conversations = Conversation::where('user_id', auth()->id())
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        // Si il reste des conversations, prendre la première
+        $selectedConversation = $conversations->first();
+
+        // Si aucune conversation, créer une nouvelle
+        if (!$selectedConversation) {
+            Conversation::cleanupEmpty(auth()->id());
+            $selectedConversation = Conversation::create([
+                'user_id' => auth()->id(),
+                'model' => auth()->user()->model ?? ChatService::DEFAULT_MODEL
+            ]);
+            $conversations = $conversations->push($selectedConversation);
+        }
+
+        $chatService = new ChatService();
+        $models = $chatService->getModels();
+
+        return Inertia::render('Ask/Index', [
+            'conversations' => $conversations,
+            'selectedConversation' => $selectedConversation,
+            'messages' => $selectedConversation->messages()->orderBy('created_at')->get(),
+            'models' => $models,
+            'selectedModel' => $selectedConversation->model,
+            'deletedConversationId' => $conversationId, // Pour info côté frontend
+        ]);
     }
 
     public function messages(Conversation $conversation)

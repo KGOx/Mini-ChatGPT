@@ -115,11 +115,23 @@ function saveModel() {
 
 function deleteConversation(conv) {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
+        loading.value = true
+
         router.delete(route('conversations.destroy', conv.id), {
-            onSuccess: () => {
-                // Recharger la page pour mettre à jour la liste
-                router.reload()
-            }
+            onSuccess: (page) => {
+                // Mettre à jour toutes les données localement
+                conversations.value = page.props.conversations
+                selectedConversation.value = page.props.selectedConversation
+                messages.value = page.props.messages
+                localSelectedModel.value = page.props.selectedModel
+
+                // Log pour vérification
+                console.log('Conversation supprimée, nouvelle liste:', conversations.value.length)
+            },
+            onError: (errors) => {
+                console.error('Erreur suppression:', errors)
+            },
+            onFinish: () => loading.value = false
         })
     }
 }

@@ -27,7 +27,7 @@ class Conversation extends Model
     {
         self::where('user_id', $userId)
             ->whereDoesntHave('messages')
-            ->where('created_at', '<', now()->subSecond(30)) // On remove les conv vides de + de 30sec
+            ->where('created_at', '<', now()->subSecond(1)) // On remove les conv vides de après 1 sec
             ->delete();
     }
 }
