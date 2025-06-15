@@ -36,6 +36,32 @@ const conversations = ref(props.conversations)
 const localSelectedModel = ref(props.selectedModel)
 const loading = ref(false)
 const newMessage = ref('')
+const showCustomInstructions = ref(false)
+const customInstructions = ref(props.auth?.user?.custom_instructions || '')
+const customResponseStyle = ref(props.auth?.user?.custom_response_style || '')
+const enableForNewChats = ref(props.auth?.user?.enable_custom_instructions ?? true)
+const saving = ref(false)
+
+function openCustomInstructions() {
+    fetch(route('profile.get-custom-instructions'))
+        .then(response => response.json())
+        .then(data => {
+            customInstructions.value = data.custom_instructions
+            customResponseStyle.value = data.custom_response_style
+            enableForNewChats.value = data.enable_custom_instructions
+
+            console.log('Données chargées:', data)
+        })
+        .catch(error => {
+            console.error('Erreur chargement:', error)
+            // Valeurs par défaut
+            customInstructions.value = ''
+            customResponseStyle.value = ''
+            enableForNewChats.value = true
+        })
+
+    showCustomInstructions.value = true
+}
 
 // Sélection d'une conversation avec Inertia
 function selectConversation(conv) {
@@ -160,6 +186,26 @@ function submit() {
     })
 }
 
+function saveCustomInstructions() {
+    saving.value = true
+
+    router.post(route('profile.custom-instructions'), {
+        custom_instructions: customInstructions.value,
+        custom_response_style: customResponseStyle.value,
+        enable_custom_instructions: enableForNewChats.value
+    }, {
+        onSuccess: () => {
+            showCustomInstructions.value = false
+            // Optionnel : afficher un message de succès
+            console.log('Instructions personnalisées sauvegardées avec succès')
+        },
+        onError: (errors) => {
+            console.error('Erreur lors de la sauvegarde:', errors)
+        },
+        onFinish: () => saving.value = false
+    })
+}
+
 const renderedMarkdown = computed(() =>
     props.flash.message ? md.render(props.flash.message) : ''
 )
@@ -227,11 +273,26 @@ const renderedMarkdown = computed(() =>
         </div>
         <!-- Barre du haut sur desktop -->
         <div class="hidden md:flex p-4 border-b items-center justify-between">
-        <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded">
+            <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
+        <div class="flex items-center space-x-3">
+            <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded">
             <option v-for="model in models" :key="model.id" :value="model.id">
-            {{ model.name }}
+                {{ model.name }}
             </option>
-        </select>
+            </select>
+
+            <!-- Bouton paramètres -->
+            <button
+            @click="openCustomInstructions"
+            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+            title="Instructions personnalisées">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            </button>
+        </div>
         </div>
 
         <!-- Liste des messages -->
@@ -270,6 +331,100 @@ const renderedMarkdown = computed(() =>
         </form>
         </div>
     </main>
+    </div>
+
+    <!-- Modal Instructions Personnalisées -->
+    <div v-if="showCustomInstructions" class="fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Overlay -->
+        <div class="fixed inset-0 transition-opacity" @click="showCustomInstructions = false">
+        <div class="absolute inset-0 bg-black opacity-50"></div>
+        </div>
+
+        <!-- Modal -->
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div class="bg-white px-6 pt-6 pb-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Customize ChatGPT</h3>
+
+            <!-- Custom Instructions -->
+            <div class="mb-6">
+            <div class="flex items-center mb-2">
+                <label class="text-sm font-medium text-gray-700">Custom Instructions</label>
+                <svg class="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+
+            <p class="text-sm text-gray-600 mb-3">
+                Que souhaiteriez-vous que ChatGPT sache sur vous pour fournir de meilleures réponses ?
+            </p>
+
+            <textarea
+                v-model="customInstructions"
+                class="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="6"
+                maxlength="1500"
+                placeholder="Dites moi en plus ...">
+            </textarea>
+
+            <div class="text-right text-sm text-gray-500 mt-1">
+                {{ customInstructions.length }}/1500
+            </div>
+            </div>
+
+            <!-- Response Style -->
+            <div class="mb-6">
+            <p class="text-sm text-gray-600 mb-3 font-medium">
+                Comment souhaitez-vous que ChatGPT réponde ?
+            </p>
+
+            <textarea
+                v-model="customResponseStyle"
+                class="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="6"
+                maxlength="1500"
+                placeholder="Dit moi tout bébou, tu veux que je parle russe? Que je m'appelle SexA-Peal2000 ?">
+            </textarea>
+
+            <div class="text-right text-sm text-gray-500 mt-1">
+                {{ customResponseStyle.length }}/1500
+            </div>
+            </div>
+
+            <!-- Enable for new chats -->
+            <div class="flex items-center justify-between mb-6">
+            <span class="text-sm font-medium text-gray-700">
+                Activer pour les nouvelles discussions</span>
+            <button
+                @click="enableForNewChats = !enableForNewChats"
+                :class="[
+                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                enableForNewChats ? 'bg-blue-600' : 'bg-gray-200'
+                ]">
+                <span :class="[
+                'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                enableForNewChats ? 'translate-x-6' : 'translate-x-1'
+                ]"></span>
+            </button>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-3">
+            <button
+            @click="showCustomInstructions = false"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            Cancel
+            </button>
+            <button
+            @click="saveCustomInstructions"
+            :disabled="saving"
+            class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50">
+            {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+        </div>
+        </div>
+    </div>
     </div>
     </AppLayout>
   </template>

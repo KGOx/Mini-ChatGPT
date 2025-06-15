@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Services\ChatService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Schema;
 
 class ConversationController extends Controller
 {
@@ -36,6 +37,8 @@ class ConversationController extends Controller
         $chatService = new ChatService();
         $models = $chatService->getModels();
 
+
+
         return Inertia::render('Ask/Index', [
             'conversations' => $conversations,
             'selectedConversation' => $selectedConversation,
@@ -47,6 +50,8 @@ class ConversationController extends Controller
 
     public function store()
     {
+        $user = auth()->user();
+
         Conversation::cleanupEmpty(auth()->id());
 
         $conversation = Conversation::create([
@@ -67,6 +72,9 @@ class ConversationController extends Controller
             'messages' => collect(),
             'models' => $models,
             'selectedModel' => $conversation->model,
+            'auth' => [
+                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions'])
+            ]
         ]);
     }
     public function show(Conversation $conversation)
@@ -92,6 +100,9 @@ class ConversationController extends Controller
             'messages' => $messages,
             'models' => $models,
             'selectedModel' => $conversation->model,
+            'auth' => [
+                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions'])
+            ]
         ]);
     }
 
@@ -102,6 +113,7 @@ class ConversationController extends Controller
             abort(403);
         }
 
+        $user = auth()->user();
         $conversationId = $conversation->id;
         $conversation->delete();
 
@@ -133,6 +145,9 @@ class ConversationController extends Controller
             'models' => $models,
             'selectedModel' => $selectedConversation->model,
             'deletedConversationId' => $conversationId, // Pour info côté frontend
+            'auth' => [
+                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions'])
+            ]
         ]);
     }
 
@@ -159,6 +174,16 @@ class ConversationController extends Controller
             'messages' => $messages,
             'models' => $models,
             'selectedModel' => $conversation->model,
+            'auth' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name ?? '',
+                    'email' => $user->email ?? '',
+                    'custom_instructions' => $user->custom_instructions ?? '',
+                    'custom_response_style' => $user->custom_response_style ?? '',
+                    'enable_custom_instructions' => $user->enable_custom_instructions ?? true
+                ]
+            ]
         ]);
     }
 

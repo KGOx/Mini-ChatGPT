@@ -111,12 +111,26 @@ class ChatService
         $user = auth()->user();
         $now = now()->locale('fr')->format('l d F Y H:i');
 
+        $basePrompt = "Tu es un assistant de chat. La date et l'heure actuelle est le {$now}. Tu es actuellement utilisé par {$user->name}.";
+
+        // Ajouter les instructions personnalisées si elles existent et sont activées
+        if ($user->enable_custom_instructions && ($user->custom_instructions || $user->custom_response_style)) {
+            $customPrompt = "";
+
+            if ($user->custom_instructions) {
+                $customPrompt .= "\n\nInformations sur l'utilisateur :\n" . $user->custom_instructions;
+            }
+
+            if ($user->custom_response_style) {
+                $customPrompt .= "\n\nStyle de réponse souhaité :\n" . $user->custom_response_style;
+            }
+
+            $basePrompt .= $customPrompt;
+        }
+
         return [
             'role' => 'system',
-            'content' => <<<EOT
-                Tu es un assistant de chat. La date et l'heure actuelle est le {$now}.
-                Tu es actuellement utilisé par {$user->name}.
-                EOT,
+            'content' => $basePrompt,
         ];
     }
 
