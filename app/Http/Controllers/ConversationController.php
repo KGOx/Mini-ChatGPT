@@ -45,6 +45,17 @@ class ConversationController extends Controller
             'messages' => $messages,
             'models' => $models,
             'selectedModel' => $newConversation->model,
+            'auth' => [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name ?? '',
+                    'email' => $user->email ?? '',
+                    'custom_instructions' => $user->custom_instructions ?? '',
+                    'custom_response_style' => $user->custom_response_style ?? '',
+                    'enable_custom_instructions' => $user->enable_custom_instructions ?? true,
+                    'custom_commands' => $user->custom_commands ?? '',
+                ]
+            ]
         ]);
     }
 
@@ -73,7 +84,7 @@ class ConversationController extends Controller
             'models' => $models,
             'selectedModel' => $conversation->model,
             'auth' => [
-                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions'])
+                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions', 'custom_commands'])
             ]
         ]);
     }
@@ -101,7 +112,7 @@ class ConversationController extends Controller
             'models' => $models,
             'selectedModel' => $conversation->model,
             'auth' => [
-                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions'])
+                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions', 'custom_commands'])
             ]
         ]);
     }
@@ -146,7 +157,7 @@ class ConversationController extends Controller
             'selectedModel' => $selectedConversation->model,
             'deletedConversationId' => $conversationId, // Pour info côté frontend
             'auth' => [
-                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions'])
+                'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions', 'custom_commands'])
             ]
         ]);
     }
@@ -181,7 +192,8 @@ class ConversationController extends Controller
                     'email' => $user->email ?? '',
                     'custom_instructions' => $user->custom_instructions ?? '',
                     'custom_response_style' => $user->custom_response_style ?? '',
-                    'enable_custom_instructions' => $user->enable_custom_instructions ?? true
+                    'enable_custom_instructions' => $user->enable_custom_instructions ?? true,
+                    'custom_commands' => $user->custom_commands ?? '',
                 ]
             ]
         ]);

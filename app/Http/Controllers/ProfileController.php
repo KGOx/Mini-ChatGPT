@@ -12,12 +12,13 @@ class ProfileController extends Controller
         $validated = $request->validate([
             'custom_instructions' => 'nullable|string|max:1500',
             'custom_response_style' => 'nullable|string|max:1500',
-            'enable_custom_instructions' => 'boolean'
+            'enable_custom_instructions' => 'boolean',
+            'custom_commands' => 'nullable|string|max:2000',
         ]);
 
         auth()->user()->update($validated);
 
-        return back()->with('success', 'Instructions personnalisées mises à jour avec succès.');
+        return back()->with('success', 'Instructions et commandes personnalisées mises à jour avec succès.');
     }
 
     public function getCustomInstructions()
@@ -28,6 +29,8 @@ class ProfileController extends Controller
             'custom_instructions' => $user->custom_instructions ?? '',
             'custom_response_style' => $user->custom_response_style ?? '',
             'enable_custom_instructions' => $user->enable_custom_instructions ?? true,
+
+            'custom_commands' => $user->custom_commands ?? '',
         ]);
     }
 }

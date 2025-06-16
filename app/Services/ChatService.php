@@ -124,6 +124,10 @@ class ChatService
             if ($user->custom_response_style) {
                 $customPrompt .= "\n\nStyle de réponse souhaité :\n" . $user->custom_response_style;
             }
+            if ($user->custom_commands) {
+                $customPrompt .= "\n\nCommandes personnalisées disponibles :\n" . $user->custom_commands;
+                $customPrompt .= "\n\nQuand l'utilisateur utilise une commande (commençant par '/'), utilise la définition correspondante pour répondre de manière appropriée.";
+            }
 
             $basePrompt .= $customPrompt;
         }

@@ -32,6 +32,7 @@ class User extends Authenticatable
         'custom_instructions',
         'custom_response_style',
         'enable_custom_instructions',
+        'custom_commands',
     ];
 
     /**
