@@ -20,13 +20,18 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.transform(data => ({
+    form.transform((data) => ({
         ...data,
-        remember: form.remember ? 'on' : '',
-    })).post(route('login'), {
-        onFinish: () => form.reset('password'),
+        remember: form.remember ? "on" : "",
+    })).post(route("login"), {
+        onFinish: () => form.reset("password"),
+        onSuccess: () => {
+            // Rechargement pour token CSRF frais après login
+            window.location.reload();
+        },
     });
 };
+
 </script>
 
 <template>

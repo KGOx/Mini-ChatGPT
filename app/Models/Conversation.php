@@ -30,4 +30,9 @@ class Conversation extends Model
             ->where('created_at', '<', now()->subSecond(1)) // On remove les conv vides de après 1 sec
             ->delete();
     }
+
+    public function getTemperature(): float
+    {
+        return $this->temperature ?? 0.7;
+    }
 }

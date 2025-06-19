@@ -41,7 +41,7 @@ class ConversationController extends Controller
 
         return Inertia::render('Ask/Index', [
             'conversations' => $conversations,
-            'selectedConversation' => $selectedConversation,
+            'selectedConversation' => $selectedConversation->fresh(),
             'messages' => $messages,
             'models' => $models,
             'selectedModel' => $newConversation->model,

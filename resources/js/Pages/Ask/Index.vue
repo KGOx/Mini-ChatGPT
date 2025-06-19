@@ -1,6 +1,6 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
@@ -44,6 +44,9 @@ const customResponseStyle = ref(props.auth?.user?.custom_response_style || '')
 const enableForNewChats = ref(props.auth?.user?.enable_custom_instructions ?? true)
 const customCommands = ref('')
 const saving = ref(false)
+const isStreamingMode = ref(true)
+const messagesContainer = ref()
+const isStreaming = ref(false)
 
 // Détecter la taille d'écran au montage
 onMounted(() => {
@@ -60,6 +63,178 @@ onMounted(() => {
 
 // Variables pour les onglets
 const activeTab = ref('instructions')
+
+const streamUrl = computed(() => {
+    return selectedConversation.value?.id
+        ? `/conversations/${selectedConversation.value.id}/stream`
+        : null
+})
+
+// Debug temporaire
+watch(streamUrl, (newUrl) => {
+    console.log('Stream URL mise à jour:', newUrl)
+}, { immediate: true })
+
+// Fonction pour scroll automatique
+const scrollToBottom = async () => {
+    await nextTick()
+    if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+    }
+}
+
+// Fonction pour recharger les conversations
+const reloadConversations = () => {
+    router.reload({
+        only: ['conversations', 'selectedConversation'],
+        preserveState: true
+    })
+}
+
+// Fonction pour générer le titre automatiquement
+const generateTitleIfNeeded = () => {
+    if (messages.value.length <= 2 && !selectedConversation.value?.title) {
+        // Laisser le backend gérer la génération automatique du titre
+        console.log('Titre sera généré automatiquement par le backend')
+    }
+}
+
+// fonction sendMessage avec streaming
+function sendMessageStream() {
+    if (!newMessage.value.trim() || isStreaming.value) return
+
+    if (!selectedConversation.value?.id) {
+        console.error('Aucune conversation sélectionnée ou ID manquant')
+        return
+    }
+
+    isStreaming.value = true
+
+// 1. Ajouter le message utilisateur immédiatement
+const userMessage = {
+        id: Date.now(),
+        user_id: props.auth?.user?.id,
+        role: 'user',
+        content: newMessage.value,
+        created_at: new Date().toISOString(),
+    }
+    messages.value.push(userMessage)
+
+    // 2. Ajouter un message vide pour l'assistant
+    const assistantMessage = {
+        id: Date.now() + 1,
+        user_id: null,
+        role: 'assistant',
+        content: '',
+        created_at: new Date().toISOString(),
+    }
+    messages.value.push(assistantMessage)
+
+    scrollToBottom()
+
+    // 3. Sauvegarder le message et vider le champ
+    const messageToSend = newMessage.value
+    newMessage.value = ''
+
+    // 4. Envoyer via fetch avec streaming
+    fetch(`/conversations/${selectedConversation.value.id}/stream`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            'Accept': 'text/event-stream',
+        },
+        body: JSON.stringify({
+            content: messageToSend
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        // Lire le stream
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+
+        function readStream() {
+            return reader.read().then(({ done, value }) => {
+                if (done) {
+                    console.log('Stream terminé')
+                    isStreaming.value = false
+                    generateTitleIfNeeded()
+                    reloadConversations()
+                    return
+                }
+
+                // Décoder le chunk reçu
+                const chunk = decoder.decode(value)
+                const lines = chunk.split('\n')
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6).trim()
+
+                        if (data === '[DONE]') {
+                            console.log('Stream terminé par [DONE]')
+                            isStreaming.value = false
+                            reloadConversations()
+                            return
+                        }
+
+                        try {
+                            const parsed = JSON.parse(data)
+                            if (parsed.content) {
+                                // Ajouter le contenu au dernier message assistant
+                                const lastMessage = messages.value[messages.value.length - 1]
+                                if (lastMessage && lastMessage.role === 'assistant') {
+                                    lastMessage.content += parsed.content
+                                    nextTick(() => scrollToBottom())
+                                }
+                            }
+                            if (parsed.title) {
+                                console.log('Titre reçu via SSE:', parsed.title)
+
+                            // Mettre à jour le titre de la conversation sélectionnée
+                            if (selectedConversation.value) {
+                                selectedConversation.value.title = parsed.title
+                            }
+
+                            // Mettre à jour dans la liste des conversations (sidebar)
+                            const convIndex = conversations.value.findIndex(c => c.id === selectedConversation.value?.id)
+                            if (convIndex !== -1) {
+                                conversations.value[convIndex].title = parsed.title
+                            }
+
+                            // Log pour vérifier
+                            console.log('Titre mis à jour dans l\'interface:', parsed.title)
+                        }
+                        } catch (error) {
+                            // Ignorer les chunks malformés (normal en SSE)
+                            console.log('Chunk ignoré:', data)
+                        }
+                    }
+                }
+
+                return readStream() // Continuer à lire
+            })
+        }
+
+        return readStream()
+    })
+    .catch(error => {
+        console.error('Erreur streaming:', error)
+        isStreaming.value = false
+
+        // Supprimer le message assistant vide en cas d'erreur
+        if (messages.value.length > 0) {
+            const lastMessage = messages.value[messages.value.length - 1]
+            if (lastMessage.role === 'assistant' && lastMessage.content === '') {
+                messages.value.pop()
+            }
+        }
+    })
+}
 
 function openCustomInstructions() {
     fetch(route('profile.get-custom-instructions'))
@@ -119,8 +294,17 @@ function newConversation() {
     })
 }
 
-// Envoi d'un message avec Inertia
+// Fonction sendMessage modifiée pour gérer les deux modes
 function sendMessage() {
+    if (isStreamingMode.value) {
+        sendMessageStream() // Utiliser le streaming
+    } else {
+        sendMessageClassic() // Utiliser l'ancien mode
+    }
+}
+
+// Envoie de message sans streaming
+function sendMessageClassic() {
     if (!newMessage.value) return
 
     // Si pas de conversation sélectionnée, arrêter
@@ -232,6 +416,8 @@ function saveCustomInstructions() {
 const renderedMarkdown = computed(() =>
     props.flash.message ? md.render(props.flash.message) : ''
 )
+
+
 </script>
 
 
@@ -368,6 +554,21 @@ const renderedMarkdown = computed(() =>
         <div class="hidden md:flex p-4 border-b items-center justify-between">
             <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
             <div class="flex items-center space-x-3">
+                        <!-- Toggle Streaming -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-gray-600">Streaming:</span>
+                    <button
+                        @click="isStreamingMode = !isStreamingMode"
+                        :class="[
+                            'relative inline-flex h-5 w-9 items-center rounded-full transition-colors',
+                            isStreamingMode ? 'bg-blue-600' : 'bg-gray-300'
+                        ]">
+                        <span :class="[
+                            'inline-block h-3 w-3 transform rounded-full bg-white transition-transform',
+                            isStreamingMode ? 'translate-x-5' : 'translate-x-1'
+                        ]"></span>
+                    </button>
+                </div>
                 <!-- Sélecteur plus compact -->
                 <select v-model="localSelectedModel" @change="saveModel" class="p-2 border rounded text-sm max-w-48 truncate">
                 <option v-for="model in models" :key="model.id" :value="model.id">
@@ -390,20 +591,24 @@ const renderedMarkdown = computed(() =>
         </div>
 
         <!-- Liste des messages -->
-        <div class="flex-1 overflow-y-auto p-2 md:p-4 bg-white"
+        <div ref="messagesContainer"
+            class="flex-1 overflow-y-auto p-2 md:p-4 bg-white"
             :class="{ 'pb-36 md:pb-32': true }">
-        <div
-            v-for="msg in messages"
-            :key="msg.id"
-            :class="msg.role === 'user' ? 'text-right' : 'text-left'"
-            class="mb-2">
             <div
-            class="inline-block px-2 py-1 md:px-4 md:py-2 rounded-lg max-w-prose"
-            :class="msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-200'"
-            v-html="renderMarkdown(msg.content)">
+                v-for="msg in messages"
+                :key="msg.id"
+                :class="msg.role === 'user' ? 'text-right' : 'text-left'"
+                class="mb-2">
+                    <div
+                    class="inline-block px-2 py-1 md:px-4 md:py-2 rounded-lg max-w-prose"
+                    :class="msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-200'"
+                    v-html="renderMarkdown(msg.content)">
+                    </div>
             </div>
-        </div>
-        <div v-if="loading" class="text-center text-gray-500 mt-4">Chargement...</div>
+            <div v-if="loading || isStreaming" class="text-center text-gray-500 mt-4">
+                <span v-if="isStreaming">Assistant en cours de réponse...</span>
+                <span v-else>Chargement...</span>
+            </div>
         </div>
 
         <!-- Saisie du message -->
@@ -424,8 +629,10 @@ const renderedMarkdown = computed(() =>
             <button
             type="submit"
             class="bg-blue-600 text-white px-2 py-1 md:px-4 md:py-2 rounded"
-            :disabled="loading || !newMessage">
-            Envoyer
+            :disabled="(loading || isStreaming) || !newMessage">
+                <span v-if="isStreaming">Streaming...</span>
+                <span v-else-if="loading">Envoi...</span>
+                <span v-else>Envoyer</span>
             </button>
         </form>
         </div>

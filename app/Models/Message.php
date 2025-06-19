@@ -17,4 +17,12 @@ class Message extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function toApiFormat(): array
+    {
+        return [
+            'role' => $this->role,
+            'content' => $this->content,
+        ];
+    }
 }

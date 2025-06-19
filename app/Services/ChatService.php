@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use OpenAI\Responses\StreamResponse;
 
 class ChatService
 {
@@ -185,6 +186,44 @@ class ChatService
             return strlen($fallbackTitle) > 40
                 ? substr($fallbackTitle, 0, 37) . '...'
                 : $fallbackTitle;
+        }
+    }
+
+    /**
+     * Version streaming qui retourne un StreamResponse pour les SSE.
+     *
+     * @param array{role: 'assistant'|'function'|'system'|'user', content: string} $messages
+     */
+    public function stream(array $messages, ?string $model = null, float $temperature = 0.7): StreamResponse
+    {
+        try {
+            logger()->info('Envoi du message en streaming', [
+                'model' => $model,
+                'temperature' => $temperature,
+            ]);
+
+            $models = collect($this->getModels());
+            if (!$model || !$models->contains('id', $model)) {
+                $model = self::DEFAULT_MODEL;
+                logger()->info('Modèle par défaut utilisé:', ['model' => $model]);
+            }
+
+            $messages = [$this->getChatSystemPrompt(), ...$messages];
+
+            $stream = $this->client->chat()->createStreamed([
+                'model' => $model,
+                'messages' => $messages,
+                'temperature' => $temperature,
+                'stream' => true,
+            ]);
+
+            return $stream;
+        } catch (\Exception $e) {
+            logger()->error('Erreur dans sendMessageStream:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
         }
     }
 }

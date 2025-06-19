@@ -41,4 +41,6 @@ Route::middleware([
     Route::get('/profile/custom-instructions', [ProfileController::class, 'getCustomInstructions'])
         ->name('profile.get-custom-instructions')
         ->middleware('auth');
+    Route::post('/conversations/{conversation}/stream', [MessageController::class, 'sendMessageStream'])
+        ->name('conversations.stream');
 });
