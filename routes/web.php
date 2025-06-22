@@ -27,10 +27,6 @@ Route::middleware([
     })->name('dashboard');
 
     Route::get('/ask', [ConversationController::class, 'ask'])->name('ask.index');
-    // Route::get('/ask', [AskController::class, 'index'])->name('ask.index');
-    Route::post('/ask', [AskController::class, 'ask'])->name('ask.post');
-
-    Route::get('/conversations', [ConversationController::class, 'index'])->name('conversations.index');
     Route::get('/conversations/{conversation}', [ConversationController::class, 'show'])->name('conversations.show');
     Route::post('/conversations', [ConversationController::class, 'store'])->name('conversations.store');
     Route::post('/conversations/{conversation}/messages', [MessageController::class, 'store'])->name('messages.store');
