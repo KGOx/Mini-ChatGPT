@@ -1,3 +1,4 @@
+<!-- CustomInstructionsModal.vue -->
 <script setup>
 import { ref} from 'vue'
 
@@ -19,23 +20,25 @@ const emit = defineEmits([
   'save'
 ])
 
+// État local pour navigation entre onglets sans impacter le parent
 const activeTab = ref('instructions')
 </script>
 
 <template>
+  <!-- Modal avec rendu conditionnel et gestion de z-index pour overlay -->
   <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-      <!-- Overlay -->
+      <!-- Overlay cliquable pour fermeture intuitive -->
       <div class="fixed inset-0 transition-opacity" @click="$emit('close')">
         <div class="absolute inset-0 bg-black opacity-50"></div>
       </div>
 
-      <!-- Modal -->
+      <!-- Corps de modal avec responsive et transitions -->
       <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
         <div class="bg-white px-6 pt-6 pb-4">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Customize ChatGPT</h3>
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Instructions pour ChatGPT</h3>
 
-          <!-- Onglets -->
+          <!-- Système d'onglets avec état visuel actif/inactif -->
           <div class="border-b border-gray-200 mb-6">
             <nav class="-mb-px flex space-x-8">
               <button @click="activeTab = 'instructions'"
@@ -59,39 +62,41 @@ const activeTab = ref('instructions')
             </nav>
           </div>
 
-          <!-- Contenu onglet Instructions -->
+          <!-- Onglet Instructions : personnalisation du comportement de l'IA -->
           <div v-if="activeTab === 'instructions'" class="space-y-6">
-            <!-- Custom Instructions -->
             <div>
               <div class="flex items-center mb-2">
-                <label class="text-sm font-medium text-gray-700">Custom Instructions</label>
+                <label class="text-sm font-medium text-gray-700">Instructions personnalisées</label>
+                <!-- Icône info pour affordance UX -->
                 <svg class="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
               </div>
 
               <p class="text-sm text-gray-600 mb-3">
-                What would you like ChatGPT to know about you to provide better responses?
+                Que souhaiteriez-vous que ChatGPT sache sur vous pour fournir de meilleures réponses ?
               </p>
 
+              <!-- Pattern v-model personnalisé avec émissions d'événements -->
               <textarea
                 :value="customInstructions"
                 @input="$emit('update:customInstructions', $event.target.value)"
                 class="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows="6"
                 maxlength="1500"
-                placeholder="Je m'appelle Thibault et je parle français.&#10;&#10;Je suis informaticien et plus particulièrement programmeur web.&#10;J'utilise les technologies suivantes :&#10;PHP, JavaScript, MySQL, Tailwind CSS, TypeScript, VueJS, Laravel.">
+                placeholder="Je m'appelle Henri, j'ai 34 ans et je suis développeur informatique débutant">
               </textarea>
 
+              <!-- Compteur de caractères réactif pour feedback utilisateur -->
               <div class="text-right text-sm text-gray-500 mt-1">
                 {{ customInstructions.length }}/1500
               </div>
             </div>
 
-            <!-- Response Style -->
+            <!-- Section style de réponse pour personnaliser le ton de l'IA -->
             <div>
               <p class="text-sm text-gray-600 mb-3 font-medium">
-                How would you like ChatGPT to respond?
+                Comment souhaitez-vous que ChatGPT réponde ?
               </p>
 
               <textarea
@@ -100,7 +105,7 @@ const activeTab = ref('instructions')
                 class="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows="6"
                 maxlength="1500"
-                placeholder="Réponds dans la langue dans laquelle je te parle. Tu as choisi de t'appeler Aria.&#10;Veilles à l'orthographe. Soigne ton style. Utilise des synonymes. Ne commence pas tes phrases par 'en tant que modèle de langage'. Si besoin, demande des précisions. N'invente rien si je ne le demande pas explicitement.">
+                placeholder="Répond moi de façon concice, de manière claire et dans la langue dans la quelle je te parle. Ne soit pas amical mais reste professionnel.">
               </textarea>
 
               <div class="text-right text-sm text-gray-500 mt-1">
@@ -108,15 +113,16 @@ const activeTab = ref('instructions')
               </div>
             </div>
 
-            <!-- Enable for new chats -->
+            <!-- Toggle switch pour activation globale des instructions -->
             <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-gray-700">Enable for new chats</span>
+              <span class="text-sm font-medium text-gray-700">Activer pour les nouvelles discussions</span>
               <button
                 @click="$emit('update:enableForNewChats', !enableForNewChats)"
                 :class="[
                   'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
                   enableForNewChats ? 'bg-blue-600' : 'bg-gray-200'
                 ]">
+                <!-- Indicateur visuel mobile selon l'état -->
                 <span :class="[
                   'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
                   enableForNewChats ? 'translate-x-6' : 'translate-x-1'
@@ -125,7 +131,7 @@ const activeTab = ref('instructions')
             </div>
           </div>
 
-          <!-- Contenu onglet Commandes -->
+          <!-- Onglet Commandes : système de raccourcis personnalisés -->
           <div v-if="activeTab === 'commands'" class="space-y-6">
             <div>
               <div class="flex items-center mb-2">
@@ -139,6 +145,7 @@ const activeTab = ref('instructions')
                 Ici, vous pouvez définir vos propres commandes pour rendre votre expérience avec votre assistant plus rapide et personnalisée.
               </p>
 
+              <!-- Documentation intégrée pour guider l'utilisateur -->
               <div class="bg-blue-50 p-3 rounded-md mb-4">
                 <p class="text-sm text-blue-800 font-medium mb-2">Comment ça marche ?</p>
                 <ul class="text-sm text-blue-700 space-y-1">
@@ -148,6 +155,7 @@ const activeTab = ref('instructions')
                 </ul>
               </div>
 
+              <!-- Zone de texte plus large pour les commandes multiples -->
               <textarea
                 :value="customCommands"
                 @input="$emit('update:customCommands', $event.target.value)"
@@ -157,6 +165,7 @@ const activeTab = ref('instructions')
                 placeholder="/aide - Donner de l'aide sur les commandes&#10;/recherche - Effectuer une recherche&#10;/idees - Donner une liste d'idées sur un sujet">
               </textarea>
 
+              <!-- Limite étendue pour les commandes (2000 vs 1500) -->
               <div class="text-right text-sm text-gray-500 mt-1">
                 {{ customCommands.length }}/2000
               </div>
@@ -164,13 +173,14 @@ const activeTab = ref('instructions')
           </div>
         </div>
 
-        <!-- Buttons -->
+        <!-- Footer avec actions primaires/secondaires et état de sauvegarde -->
         <div class="bg-gray-50 px-6 py-3 flex justify-end space-x-3">
           <button
             @click="$emit('close')"
             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
             Cancel
           </button>
+          <!-- Bouton avec état disabled pendant sauvegarde pour éviter double-soumission -->
           <button
             @click="$emit('save')"
             :disabled="saving"

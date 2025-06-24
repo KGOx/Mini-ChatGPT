@@ -8,43 +8,56 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Contrôleur principal pour la gestion complète des conversations persistantes
+ * Centralise la logique de CRUD et l'interface utilisateur via Inertia
+ */
 class ConversationController extends Controller
 {
+    /**
+     * Redirection simple vers le point d'entrée principal
+     */
     public function index()
     {
-        // Redirige vers la page principale du chat
         return redirect()->route('ask.index');
     }
+
+    /**
+     * Point d'entrée principal : création automatique d'une nouvelle conversation
+     * avec nettoyage préalable des conversations anciennes vides
+     */
     public function ask()
     {
         $user = auth()->user();
 
-        // On nettoie les conversations vides de l'utilisateur avant la création d'une nouvelle
+        // Pattern de nettoyage automatique : supprime les conversations vides anciennes avant création
         Conversation::cleanupEmpty($user->id);
 
+        // Création avec modèle personnalisé utilisateur ou fallback vers défaut
         $newConversation = Conversation::create([
             'user_id' => $user->id,
             'model' => $user->model ?? ChatService::DEFAULT_MODEL
         ]);
 
+        // Récupération ordonnée par activité récente pour affichage chronologique
         $conversations = Conversation::where('user_id', $user->id)
             ->orderBy('updated_at', 'desc')
             ->get();
 
         $selectedConversation = $newConversation;
-        $messages = collect();
+        $messages = collect(); // Collection vide pour nouvelle conversation
 
         $chatService = new ChatService();
         $models = $chatService->getModels();
 
-
-
+        // Rendu Inertia avec payload complet pour interface SPA
         return Inertia::render('Ask/Index', [
             'conversations' => $conversations,
-            'selectedConversation' => $selectedConversation->fresh(),
+            'selectedConversation' => $selectedConversation->fresh(), // Refresh pour garantir l'état actuel
             'messages' => $messages,
             'models' => $models,
             'selectedModel' => $newConversation->model,
+            // Sérialisation manuelle de l'utilisateur avec champs personnalisés pour Vue.js
             'auth' => [
                 'user' => [
                     'id' => $user->id,
@@ -59,10 +72,14 @@ class ConversationController extends Controller
         ]);
     }
 
+    /**
+     * Création manuelle de conversation (utilisée par l'interface pour "Nouvelle conversation")
+     */
     public function store()
     {
         $user = auth()->user();
 
+        // Même pattern de nettoyage que ask()
         Conversation::cleanupEmpty(auth()->id());
 
         $conversation = Conversation::create([
@@ -80,17 +97,22 @@ class ConversationController extends Controller
         return Inertia::render('Ask/Index', [
             'conversations' => $conversations,
             'selectedConversation' => $conversation,
-            'messages' => collect(),
+            'messages' => collect(), // Collection vide pour nouvelle conversation
             'models' => $models,
             'selectedModel' => $conversation->model,
+            // Pattern de sérialisation allégé avec only()
             'auth' => [
                 'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions', 'custom_commands'])
             ]
         ]);
     }
+
+    /**
+     * Affichage d'une conversation existante avec ses messages
+     */
     public function show(Conversation $conversation)
     {
-        // Vérifier que l'utilisateur peut voir cette conversation
+        // Pattern de sécurité : vérification explicite de propriété
         if ($conversation->user_id !== auth()->id()) {
             abort(403);
         }
@@ -100,6 +122,7 @@ class ConversationController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get();
 
+        // Chargement ordonné des messages pour affichage chronologique
         $messages = $conversation->messages()->orderBy('created_at')->get();
 
         $chatService = new ChatService();
@@ -117,26 +140,27 @@ class ConversationController extends Controller
         ]);
     }
 
+    /**
+     * Suppression avec logique de fallback automatique
+     */
     public function destroy(Conversation $conversation)
     {
-        // Vérifier que l'utilisateur peut supprimer cette conversation
+        // Pattern de sécurité identique
         if ($conversation->user_id !== auth()->id()) {
             abort(403);
         }
 
         $user = auth()->user();
         $conversationId = $conversation->id;
-        $conversation->delete();
+        $conversation->delete(); // Cascade delete automatique pour les messages
 
-        // Retourner les données mises à jour au lieu d'une simple redirection
         $conversations = Conversation::where('user_id', auth()->id())
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        // Si il reste des conversations, prendre la première
         $selectedConversation = $conversations->first();
 
-        // Si aucune conversation, créer une nouvelle
+        // Logique de fallback : création automatique si plus de conversations
         if (!$selectedConversation) {
             Conversation::cleanupEmpty(auth()->id());
             $selectedConversation = Conversation::create([
@@ -155,16 +179,19 @@ class ConversationController extends Controller
             'messages' => $selectedConversation->messages()->orderBy('created_at')->get(),
             'models' => $models,
             'selectedModel' => $selectedConversation->model,
-            'deletedConversationId' => $conversationId, // Pour info côté frontend
+            'deletedConversationId' => $conversationId, // Information pour animation frontend
             'auth' => [
                 'user' => $user->only(['id', 'name', 'email', 'custom_instructions', 'custom_response_style', 'enable_custom_instructions', 'custom_commands'])
             ]
         ]);
     }
 
+    /**
+     * Navigation vers une conversation spécifique avec ses messages
+     */
     public function messages(Conversation $conversation)
     {
-        // On vérifie que l'utilisateur peut voir la conversation
+        // Pattern de sécurité répété
         if ($conversation->user_id !== auth()->id()) {
             abort(403);
         }
@@ -199,13 +226,16 @@ class ConversationController extends Controller
         ]);
     }
 
+    /**
+     * Mise à jour du modèle avec synchronisation utilisateur
+     */
     public function updateModel(Request $request, Conversation $conversation)
     {
         $conversation->update(['model' => $request->model]);
 
-        // on met à jour le modèle de l'utilisateur
+        // Pattern de synchronisation : mise à jour de la préférence globale utilisateur
         auth()->user()->update(['model' => $request->model]);
 
-        return back();
+        return back(); // Retour simple sans rechargement complet
     }
 }

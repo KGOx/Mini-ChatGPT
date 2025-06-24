@@ -1,3 +1,4 @@
+<!-- ChatSidebar.vue -->
 <script setup>
 import { ref } from 'vue'
 import ConversationItem from './ConversationItem.vue'
@@ -18,6 +19,7 @@ const emit = defineEmits([
   'update:sidebarCollapsed'
 ])
 
+// Auto-fermeture mobile après sélection pour optimiser l'espace écran
 function selectConversation(conv) {
   emit('select-conversation', conv)
   if (props.isMobile) {
@@ -27,6 +29,7 @@ function selectConversation(conv) {
 </script>
 
 <template>
+  <!-- Sidebar responsive avec état collapsed et interactions hover -->
   <aside
     @mouseenter="$emit('update:sidebarCollapsed', false)"
     @mouseleave="$emit('update:sidebarCollapsed', true)"
@@ -37,13 +40,13 @@ function selectConversation(conv) {
       sidebarCollapsed ? 'md:w-16' : 'md:w-80',
     ]">
 
-    <!-- Header -->
     <div class="p-2 md:p-4 font-bold flex justify-between items-center border-b flex-shrink-0">
+      <!-- Masquage conditionnel du texte en mode collapsed -->
       <span :class="{ 'md:hidden': sidebarCollapsed, 'md:block': !sidebarCollapsed }">
         Conversations
       </span>
 
-      <!-- Icône collapsed -->
+      <!-- Icône de remplacement en mode collapsed pour maintenir l'affordance visuelle -->
       <div v-if="sidebarCollapsed" class="hidden md:flex w-full justify-center">
         <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -54,9 +57,8 @@ function selectConversation(conv) {
       <button class="md:hidden text-2xl" @click="$emit('close-sidebar')">×</button>
     </div>
 
-    <!-- Liste conversations -->
     <div class="flex-1 overflow-y-auto min-h-0">
-      <!-- Mode collapsed -->
+      <!-- Mode collapsed : représentation ultra-condensée avec limitation à 6 conversations -->
       <div v-if="sidebarCollapsed" class="hidden md:block p-2 space-y-3">
         <div v-for="(conv, index) in conversations.slice(0, 6)" :key="conv.id"
              class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-blue-600 cursor-pointer hover:bg-blue-200 transition-colors"
@@ -65,13 +67,14 @@ function selectConversation(conv) {
           {{ index + 1 }}
         </div>
 
+        <!-- Indicateur de overflow pour > 6 conversations -->
         <div v-if="conversations.length > 6"
              class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-xs text-gray-600">
           +{{ conversations.length - 6 }}
         </div>
       </div>
 
-      <!-- Mode normal -->
+      <!-- Mode normal : liste complète avec composants détaillés -->
       <ul :class="{ 'md:hidden': sidebarCollapsed, 'md:block': !sidebarCollapsed }">
         <ConversationItem
           v-for="conv in conversations"
@@ -83,13 +86,14 @@ function selectConversation(conv) {
       </ul>
     </div>
 
-    <!-- Bouton nouvelle conversation -->
+    <!-- Bouton fixe en bas avec adaptation selon l'état collapsed -->
     <div class="border-t bg-gray-50 p-3 flex-shrink-0">
       <button @click="$emit('new-conversation')"
               :class="[
                 'w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition-colors font-medium',
                 sidebarCollapsed ? 'md:p-2 md:rounded-full' : 'text-sm md:text-base'
               ]">
+        <!-- Basculement texte/icône selon l'état collapsed -->
         <span v-if="!sidebarCollapsed || isMobile">+ Nouvelle conversation</span>
         <svg v-else class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

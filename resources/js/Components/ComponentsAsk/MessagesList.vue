@@ -1,3 +1,4 @@
+<!-- MessagesList.vue -->
 <script setup>
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
@@ -12,7 +13,7 @@ const props = defineProps({
 
 const messagesContainer = ref()
 
-// Configuration markdown identique à votre code original
+// Configuration Markdown avec syntax highlighting pour le code dans les réponses IA
 const md = new MarkdownIt({
   html: true,
   highlight: function (str, lang) {
@@ -29,6 +30,7 @@ function renderMarkdown(content) {
   return md.render(content)
 }
 
+// Pattern defineExpose : expose des méthodes internes au composant parent
 defineExpose({
   scrollToBottom: async () => {
     await nextTick()
@@ -40,17 +42,19 @@ defineExpose({
 </script>
 
 <template>
-  <div class="flex-1 overflow-y-auto p-2 md:p-4 bg-white pb-36 md:pb-32">
+  <!-- Container avec padding-bottom fixe pour éviter chevauchement avec MessageInput -->
+  <div ref="messagesContainer" class="flex-1 overflow-y-auto p-2 md:p-4 bg-white pb-36 md:pb-32">
     <div v-for="msg in messages" :key="msg.id"
          :class="msg.role === 'user' ? 'text-right' : 'text-left'"
          class="mb-2">
+      <!-- Distinction visuelle user (droite, bleu) vs assistant (gauche, gris) -->
       <div class="inline-block px-2 py-1 md:px-4 md:py-2 rounded-lg max-w-prose"
            :class="msg.role === 'user' ? 'bg-blue-100' : 'bg-gray-200'"
            v-html="renderMarkdown(msg.content)">
       </div>
     </div>
 
-    <!-- Indicateur de chargement -->
+    <!-- Feedback visuel pendant les opérations asynchrones -->
     <div v-if="loading || isStreaming" class="text-center text-gray-500 mt-4">
       <span v-if="isStreaming">Assistant en cours de réponse...</span>
       <span v-else>Chargement...</span>

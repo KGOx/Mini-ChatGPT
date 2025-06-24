@@ -1,3 +1,4 @@
+<!-- ChatHeader.vue -->
 <script setup>
 import StreamingToggle from './StreamingToggle.vue'
 
@@ -16,18 +17,20 @@ const emit = defineEmits([
   'save-model'
 ])
 
+// Déclenchement immédiat de la sauvegarde lors du changement de modèle
 function handleModelChange() {
   emit('save-model')
 }
 </script>
 
 <template>
-  <!-- Header mobile -->
+  <!-- Interface adaptative : mobile et desktop complètement différentes -->
   <div v-if="isMobile" class="md:hidden flex items-center justify-between p-2 border-b bg-gray-50">
+    <!-- Pattern slot pour injection de contenu spécialisé depuis le parent -->
     <slot name="mobile-menu-button" />
 
     <div class="flex items-center space-x-2">
-      <!-- Sélecteur modèle mobile -->
+      <!-- Truncature intelligente pour les noms de modèles longs -->
       <select
         :value="selectedModel"
         @change="$emit('update:selectedModel', $event.target.value); handleModelChange()"
@@ -37,7 +40,7 @@ function handleModelChange() {
         </option>
       </select>
 
-      <!-- Bouton paramètres mobile -->
+      <!-- Icône settings avec SVG inline pour performance -->
       <button
         @click="$emit('open-custom-instructions')"
         class="p-2 text-gray-500 hover:text-gray-700 rounded-md transition-colors"
@@ -51,17 +54,18 @@ function handleModelChange() {
     </div>
   </div>
 
-  <!-- Header desktop -->
+  <!-- Version desktop avec plus d'espace et fonctionnalités étendues -->
   <div v-else class="hidden md:flex p-4 border-b items-center justify-between">
+    <!-- Affichage dynamique du titre ou fallback pour nouvelles conversations -->
     <strong>{{ selectedConversation?.title || 'Nouvelle conversation' }}</strong>
 
     <div class="flex items-center space-x-3">
-      <!-- Toggle Streaming -->
+      <!-- Délégation du toggle streaming à un composant spécialisé -->
       <StreamingToggle
         :modelValue="isStreamingMode"
         @update:modelValue="$emit('update:isStreamingMode', $event)" />
 
-      <!-- Sélecteur modèle desktop -->
+      <!-- Limite plus généreuse pour desktop (20 vs 15 caractères) -->
       <select
         :value="selectedModel"
         @change="$emit('update:selectedModel', $event.target.value); handleModelChange()"
@@ -71,7 +75,7 @@ function handleModelChange() {
         </option>
       </select>
 
-      <!-- Bouton paramètres desktop -->
+      <!-- Effet hover plus sophistiqué pour desktop -->
       <button
         @click="$emit('open-custom-instructions')"
         class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"

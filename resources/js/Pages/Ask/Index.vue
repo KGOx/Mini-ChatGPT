@@ -2,24 +2,24 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { ref, onMounted, nextTick } from 'vue'
 import { router } from '@inertiajs/vue3'
+// Architecture modulaire : composants spécialisés pour chaque zone fonctionnelle
 import ChatSidebar from '@/Components/ComponentsAsk/ChatSidebar.vue'
 import ChatHeader from '@/Components/ComponentsAsk/ChatHeader.vue'
 import MessagesList from '@/Components/ComponentsAsk/MessagesList.vue'
 import MessageInput from '@/Components/ComponentsAsk/MessageInput.vue'
 import CustomInstructionsModal from '@/Components/ComponentsAsk/CustomInstructionsModal.vue'
 
-// Props corrigées
 const props = defineProps({
     conversations: Array,
     selectedConversation: Object,
     messages: Array,
     models: Array,
     selectedModel: String,
-    auth: Object, // ← AJOUTÉ
+    auth: Object, // Nécessaire pour user_id dans les messages streaming
     flash: Object
 })
 
-// Variables principales
+// État local réactif pour gérer l'interface sans dépendre uniquement des props Inertia
 const showSidebar = ref(false)
 const sidebarCollapsed = ref(true)
 const isMobile = ref(false)
@@ -29,10 +29,11 @@ const conversations = ref(props.conversations)
 const localSelectedModel = ref(props.selectedModel)
 const loading = ref(false)
 const newMessage = ref('')
+// Double mode : streaming temps réel vs classique avec rechargement
 const isStreamingMode = ref(true)
 const isStreaming = ref(false)
 
-// Variables instructions personnalisées
+// État pour modal instructions personnalisées
 const showCustomInstructions = ref(false)
 const customInstructions = ref('')
 const customResponseStyle = ref('')
@@ -40,10 +41,10 @@ const enableForNewChats = ref(true)
 const customCommands = ref('')
 const saving = ref(false)
 
-// Référence pour scroll
+// Référence pour contrôler le scroll depuis le parent
 const messagesListRef = ref()
 
-// Détecter mobile
+// Détection responsive pour adapter l'interface mobile/desktop
 onMounted(() => {
     const checkMobile = () => {
         isMobile.value = window.innerWidth < 768
@@ -55,7 +56,7 @@ onMounted(() => {
     return () => window.removeEventListener('resize', checkMobile)
 })
 
-// Scroll automatique
+// Délégation du scroll au composant MessagesList via ref
 const scrollToBottom = async () => {
     await nextTick()
     if (messagesListRef.value?.scrollToBottom) {
@@ -63,7 +64,7 @@ const scrollToBottom = async () => {
     }
 }
 
-// Recharger conversations
+// Rechargement partiel pour maintenir l'état local tout en synchronisant les données serveur
 const reloadConversations = () => {
     router.reload({
         only: ['conversations', 'selectedConversation'],
@@ -71,7 +72,7 @@ const reloadConversations = () => {
     })
 }
 
-// Streaming
+// Streaming SSE : implémentation native sans dépendance externe
 function sendMessageStream() {
     if (!newMessage.value.trim() || isStreaming.value) return
 
@@ -82,9 +83,9 @@ function sendMessageStream() {
 
     isStreaming.value = true
 
-    // Ajouter message utilisateur
+    // Ajout optimiste : affichage immédiat avant validation serveur
     const userMessage = {
-        id: Date.now(),
+        id: Date.now(), // ID temporaire pour l'affichage
         user_id: props.auth?.user?.id,
         role: 'user',
         content: newMessage.value,
@@ -92,12 +93,12 @@ function sendMessageStream() {
     }
     messages.value.push(userMessage)
 
-    // Ajouter message assistant vide
+    // Message assistant vide pour recevoir le contenu en streaming
     const assistantMessage = {
         id: Date.now() + 1,
-        user_id: null,
+        user_id: null, // Messages assistant sans user_id
         role: 'assistant',
-        content: '',
+        content: '', // Rempli progressivement via SSE
         created_at: new Date().toISOString(),
     }
     messages.value.push(assistantMessage)
@@ -105,9 +106,9 @@ function sendMessageStream() {
     scrollToBottom()
 
     const messageToSend = newMessage.value
-    newMessage.value = ''
+    newMessage.value = '' // Nettoyage immédiat pour UX fluide
 
-    // Fetch streaming
+    // Connexion SSE native avec ReadableStream
     fetch(`/conversations/${selectedConversation.value.id}/stream`, {
         method: 'POST',
         headers: {
@@ -123,6 +124,7 @@ function sendMessageStream() {
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
 
+        // Traitement récursif du stream pour gérer la fragmentation des chunks
         function processStream() {
             return reader.read().then(({ done, value }) => {
                 if (done) {
@@ -134,10 +136,12 @@ function sendMessageStream() {
                 const chunk = decoder.decode(value, { stream: true })
                 const lines = chunk.split('\n')
 
+                // Parsing des événements SSE ligne par ligne
                 for (const line of lines) {
                     if (line.startsWith('data: ')) {
                         const data = line.slice(6).trim()
 
+                        // Signal de fin de stream
                         if (data === '[DONE]') {
                             isStreaming.value = false
                             reloadConversations()
@@ -148,6 +152,7 @@ function sendMessageStream() {
                             try {
                                 const parsed = JSON.parse(data)
 
+                                // Accumulation progressive du contenu
                                 if (parsed.content) {
                                     const lastMessage = messages.value[messages.value.length - 1]
                                     if (lastMessage && lastMessage.role === 'assistant') {
@@ -156,10 +161,12 @@ function sendMessageStream() {
                                     }
                                 }
 
+                                // Mise à jour temps réel du titre généré automatiquement
                                 if (parsed.title) {
                                     if (selectedConversation.value) {
                                         selectedConversation.value.title = parsed.title
                                     }
+                                    // Synchronisation avec la sidebar
                                     const convIndex = conversations.value.findIndex(c => c.id === selectedConversation.value?.id)
                                     if (convIndex !== -1) {
                                         conversations.value[convIndex].title = parsed.title
@@ -181,6 +188,7 @@ function sendMessageStream() {
     .catch(error => {
         console.error('Erreur streaming:', error)
         isStreaming.value = false
+        // Nettoyage en cas d'erreur : suppression du message assistant vide
         if (messages.value.length > 0) {
             const lastMessage = messages.value[messages.value.length - 1]
             if (lastMessage.role === 'assistant' && lastMessage.content === '') {
@@ -190,7 +198,7 @@ function sendMessageStream() {
     })
 }
 
-// Mode classique
+// Mode classique : soumission traditionnelle avec rechargement via Inertia
 function sendMessageClassic() {
     if (!newMessage.value || !selectedConversation.value) return
 
@@ -200,7 +208,7 @@ function sendMessageClassic() {
         content: newMessage.value,
         model: localSelectedModel.value
     }, {
-        only: ['messages', 'selectedConversation', 'conversations'],
+        only: ['messages', 'selectedConversation', 'conversations'], // Rechargement partiel
         onSuccess: (page) => {
             messages.value = page.props.messages
             if (page.props.selectedConversation) {
@@ -215,7 +223,7 @@ function sendMessageClassic() {
     })
 }
 
-// Basculer mode
+// Pattern Strategy : basculement entre les deux modes selon préférence utilisateur
 function sendMessage() {
     if (isStreamingMode.value) {
         sendMessageStream()
@@ -224,12 +232,12 @@ function sendMessage() {
     }
 }
 
-// Sélection conversation
+// Navigation entre conversations avec préservation de l'état
 function selectConversation(conv) {
     loading.value = true
 
     router.visit(route('conversations.messages', conv.id), {
-        preserveState: false,
+        preserveState: false, // Reset complet pour nouvelle conversation
         onSuccess: (page) => {
             selectedConversation.value = page.props.selectedConversation
             messages.value = page.props.messages
@@ -239,7 +247,7 @@ function selectConversation(conv) {
     })
 }
 
-// Nouvelle conversation
+// Création de nouvelle conversation avec nettoyage automatique des conversations vides
 function newConversation() {
     loading.value = true
     router.post(route('conversations.store'), {}, {
@@ -255,7 +263,7 @@ function newConversation() {
     })
 }
 
-// Supprimer conversation
+// Suppression avec recréation automatique si plus de conversations
 function deleteConversation(conv) {
     if (confirm('Êtes-vous sûr de vouloir supprimer cette conversation ?')) {
         loading.value = true
@@ -272,23 +280,24 @@ function deleteConversation(conv) {
     }
 }
 
-// Sauvegarder modèle
+// Synchronisation modèle conversation + préférence utilisateur
 function saveModel() {
     router.patch(route('conversations.updateModel', selectedConversation.value.id), {
         model: localSelectedModel.value
     }, {
-        only: [],
+        only: [], // Pas de rechargement, juste sauvegarde
         preserveState: true
     })
 }
 
-// Instructions personnalisées
+// Chargement des instructions depuis l'API avec conversion de types
 function openCustomInstructions() {
     fetch(route('profile.get-custom-instructions'))
         .then(response => response.json())
         .then(data => {
             customInstructions.value = data.custom_instructions || ''
             customResponseStyle.value = data.custom_response_style || ''
+            // Conversion explicite Boolean pour éviter erreurs Vue.js (1/0 → true/false)
             enableForNewChats.value = Boolean(data.enable_custom_instructions)
             customCommands.value = data.custom_commands || ''
         })
@@ -303,6 +312,7 @@ function openCustomInstructions() {
     showCustomInstructions.value = true
 }
 
+// Sauvegarde des instructions avec feedback utilisateur
 function saveCustomInstructions() {
     saving.value = true
 
@@ -327,8 +337,7 @@ function saveCustomInstructions() {
 <template>
     <AppLayout title="Chat">
         <div class="flex h-screen overflow-hidden">
-
-            <!-- Sidebar -->
+            <!-- Communication parent-enfant via props/events pour architecture modulaire -->
             <ChatSidebar
                 :conversations="conversations"
                 :selected-conversation="selectedConversation"
@@ -341,15 +350,13 @@ function saveCustomInstructions() {
                 @delete-conversation="deleteConversation"
                 @close-sidebar="showSidebar = false" />
 
-            <!-- Overlay mobile -->
+            <!-- Overlay mobile pour fermeture tactile -->
             <div v-if="showSidebar"
                  class="fixed inset-0 z-30 bg-black bg-opacity-40 md:hidden"
                  @click="showSidebar = false"></div>
 
-            <!-- Zone principale -->
             <main class="flex-1 flex flex-col h-full">
-
-                <!-- Header -->
+                <!-- Pattern de slot nommé pour injection de contenu spécialisé -->
                 <ChatHeader
                     :selected-conversation="selectedConversation"
                     :models="models"
@@ -366,25 +373,24 @@ function saveCustomInstructions() {
                     </template>
                 </ChatHeader>
 
-                <!-- Messages -->
+                <!-- Référence pour contrôle du scroll depuis le parent -->
                 <MessagesList
                     ref="messagesListRef"
                     :messages="messages"
                     :loading="loading"
                     :is-streaming="isStreaming" />
 
-                <!-- Zone saisie -->
+                <!-- v-model bidirectionnel avec nomenclature Vue 3 -->
                 <MessageInput
                     v-model:new-message="newMessage"
                     :loading="loading"
                     :is-streaming="isStreaming"
                     :sidebar-collapsed="sidebarCollapsed"
                     @send-message="sendMessage" />
-
             </main>
         </div>
 
-        <!-- Modal -->
+        <!-- Modal avec bindings bidirectionnels pour synchronisation état -->
         <CustomInstructionsModal
             :show="showCustomInstructions"
             :custom-instructions="customInstructions"
@@ -398,6 +404,5 @@ function saveCustomInstructions() {
             @update:custom-commands="customCommands = $event"
             @update:enable-for-new-chats="enableForNewChats = $event"
             @save="saveCustomInstructions" />
-
     </AppLayout>
 </template>

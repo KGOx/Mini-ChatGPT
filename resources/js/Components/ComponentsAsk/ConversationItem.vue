@@ -1,3 +1,4 @@
+<!-- ConversationItem.vue -->
 <script setup>
 const props = defineProps({
   conversation: Object,
@@ -8,15 +9,19 @@ const emit = defineEmits(['select', 'delete'])
 </script>
 
 <template>
+  <!-- Pattern d'item avec révélation d'action au hover et gestion de l'état sélectionné -->
   <li :class="[
     'p-2 md:p-4 cursor-pointer flex justify-between items-center relative group transition-all duration-200 rounded-lg border-2',
     isSelected ? 'bg-blue-200' : 'bg-transparent border-transparent hover:border-gray-300 hover:bg-gray-50'
   ]">
+    <!-- Zone de sélection principale avec gestion de l'overflow -->
     <div @click="$emit('select', conversation)" class="flex-1 min-w-0">
+      <!-- Fallback intelligent pour conversations sans titre généré -->
       <div class="truncate">{{ conversation.title || 'Nouvelle conversation' }}</div>
       <div class="text-xs text-gray-500">{{ conversation.updated_at }}</div>
     </div>
 
+    <!-- Bouton de suppression avec révélation au hover et stop de propagation -->
     <button @click.stop="$emit('delete', conversation)"
             class="absolute right-2 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition-all duration-200"
             title="Supprimer">
